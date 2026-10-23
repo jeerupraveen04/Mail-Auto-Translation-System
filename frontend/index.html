@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LMS Studio — Multilingual Course Mail Auto-Translation</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🌐</span>
+      <div>
+        <h1>LMS Studio — Course Mail Auto-Translation</h1>
+        <p class="subtitle">DeepL ➔ AWS Translate ➔ Google Gemini · 38 languages · placeholder-safe cascade</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="template-key-wrap" class="field-inline">
+        <label for="template-key">Template key</label>
+        <input id="template-key" value="welcome">
+      </span>
+      <span id="course-id-wrap" class="field-inline">
+        <label for="course-id">Course ID</label>
+        <input id="course-id" value="CRS-DEMO-101">
+      </span>
+      <button id="btn-simulate" class="btn ghost">✉️ Student Email Simulator</button>
+      <button id="btn-translate-all" class="btn primary">⚡ Translate All</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="source-card">
+      <h2>English Source</h2>
+      <div class="chips-toolbar" id="chips-toolbar">
+        <span class="chips-label">Insert placeholder:</span>
+        <button class="chip" data-variable="student_name">{{student_name}}</button>
+        <button class="chip" data-variable="course_title">{{course_title}}</button>
+        <button class="chip" data-variable="start_date">{{start_date}}</button>
+        <button class="chip" data-variable="portal_url">{{portal_url}}</button>
+        <button class="chip" data-variable="instructor_name">{{instructor_name}}</button>
+      </div>
+      <label for="subject">Subject</label>
+      <input id="subject" autocomplete="off" placeholder="Welcome {{student_name}} to {{course_title}}!">
+      <label for="body">Body</label>
+      <textarea id="body" rows="8" placeholder="Dear {{student_name}},&#10;&#10;Your course {{course_title}} starts on {{start_date}}. Visit {{portal_url}} to meet {{instructor_name}}."></textarea>
+      <div class="status-line">
+        <span id="sync-indicator" class="sync idle">● Idle</span>
+        <span id="timing-info"></span>
+      </div>
+    </section>
+
+    <section class="grid-card">
+      <div class="grid-header">
+        <h2>Translations (38 languages)</h2>
+        <div class="legend">
+          <span class="badge deepl">DeepL</span>
+          <span class="badge aws">AWS</span>
+          <span class="badge gemini">Gemini</span>
+          <span class="badge error">Needs review</span>
+          <span class="badge lock">🔒 Manual</span>
+        </div>
+      </div>
+      <div id="locale-grid" class="locale-grid"></div>
+    </section>
+  </main>
+
+  <div id="simulator-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>Student Email Simulator</h2>
+        <button id="sim-close" class="btn ghost small">✕ Close</button>
+      </div>
+      <p class="modal-sub">Preview how real students see this email. Sample data is injected locally and is <strong>never</strong> sent to translation APIs.</p>
+      <div class="sim-controls">
+        <label>Language
+          <select id="sim-language"></select>
+        </label>
+      </div>
+      <div class="sim-email phone">
+        <div class="sim-meta">
+          <span class="sim-from">LMS Notifications</span>
+          <span class="sim-date" id="sim-date"></span>
+        </div>
+        <div class="sim-subject" id="sim-subject"></div>
+        <div class="sim-body" id="sim-body"></div>
+      </div>
+      <h3>Sample data used</h3>
+      <table class="sim-table" id="sim-data-table"></table>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

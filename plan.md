@@ -1,5 +1,30 @@
 # Implementation Plan: Multilingual Course Mail Auto-Translation System
 
+> ## ✅ Implementation Status (as of 2026-10-23)
+>
+> **All 6 phases are implemented and verified.** Stack: Python 3.12 / FastAPI
+> (backend matches the plan's Python references: `deepl`, `boto3`,
+> `google-genai`, `ThreadPoolExecutor`), SQLAlchemy + PostgreSQL JSONB,
+> Redis cache, vanilla-JS LMS Studio frontend. 94 tests pass
+> (`pytest backend/tests -q`), `ruff check backend/` clean, server runs
+> end-to-end (`./run.sh`, frontend at :8000).
+>
+> | Phase | Status | Where |
+> |-------|--------|-------|
+> | 1. Variable shielding | ✅ Done | `backend/app/shielding.py` (mask/unmask + HTML `translate="no"` masking, tolerant unmask) |
+> | 2. Engine adapters | ✅ Done | `backend/app/adapters/{deepl_engine,aws_engine,gemini_engine}.py` |
+> | 3. Waterfall + circuit breaker | ✅ Done | `backend/app/pipeline.py`, `backend/app/circuit_breaker.py` |
+> | 4. Backend + queue + cache | ✅ Done | `backend/app/worker.py`, `backend/app/cache.py`, `backend/app/routes.py` |
+> | 5. Database schema | ✅ Done | `backend/app/db.py`, `backend/migrations/001_*.sql` |
+> | 6. LMS Studio frontend | ✅ Done | `frontend/{index.html,app.js,styles.css}` |
+>
+> Notes: provider credentials are read from the environment only (`DEEPL_API_KEY`,
+> `AWS_*`, `GEMINI_API_KEY`). Without keys configured, engines report
+> `manual_review` with full audit chains — no crashes. Failover/fake-engine
+> scenarios are covered by the test suite (DeepL 429 → AWS → Gemini, circuit
+> breaker states, Redis cache round-trips, manual-edit lock survival,
+> 38-script token preservation).
+
 ## Project Overview
 
 This engineering plan details the architecture, roadmap, and technical milestones for integrating an enterprise-grade automated translation pipeline into a **Course Management System (LMS)** supporting **38 global languages**. 
@@ -223,8 +248,27 @@ Whenever an administrator or instructor inputs course email notifications or des
 
 ## 6. Verification & Quality Assurance Checklist
 
-- [ ] **Variable Shielding Verification**: Ensure `{{student_name}}` and `{{course_title}}` remain identical across all 38 target language outputs.
-- [ ] **Failover Testing**: Simulate DeepL 429 response and verify seamless fallback to AWS Translate.
-- [ ] **RTL Rendering**: Verify Arabic and Hebrew properly display with right-to-left text alignment in the LMS frontend.
-- [ ] **Manual Edit Lock**: Confirm that manual edits made by an instructor to French or German are not wiped out when English text is edited.
-- [ ] **Export Integrity**: Verify that exported JSON payload adheres strictly to database schema standards.
+- [x] **Variable Shielding Verification**: `{{student_name}}` and `{{course_title}}` remain identical across all 38 target language outputs — enforced by `shielding.py`; verified per-script in `backend/tests/test_shielding.py::test_token_preservation_across_all_38_target_scripts` and end-to-end in `test_api.py::test_auto_translate_all_38_languages`.
+- [x] **Failover Testing**: DeepL 429 response simulation falls back to AWS Translate — `backend/tests/test_pipeline.py::test_deepl_429_failover_to_aws` (plus AWS→Gemini and all-tier-failure manual-review cases).
+- [x] **RTL Rendering**: Arabic and Hebrew render with `dir="rtl"` and right-alignment in the LMS Studio (`frontend/app.js` locale cards + simulator) and are flagged `rtl: true` in the API.
+- [x] **Manual Edit Lock**: manual overrides lock a locale and survive subsequent auto-syncs — verified in `test_api.py::test_manual_override_locked_survives_resync` and live against the running server; reset via the DELETE lock endpoint.
+- [x] **Export Integrity**: the REST payload adheres strictly to the schema — `test_api.py::test_export_integrity_shape` validates exact keys; persistence mirrors the plan §5 JSONB structure.
+
+---
+
+## 7. How to Run
+
+```bash
+./run.sh                  # or: .venv/bin/uvicorn app.main:app --port 8000 --app-dir backend
+# LMS Studio UI:          http://localhost:8000/
+# OpenAPI docs:           http://localhost:8000/docs
+```
+
+Default infra targets (overridable via env): PostgreSQL
+`postgresql+psycopg2://edunexa:edunexa@localhost:55432/mail_translation`,
+Redis `redis://localhost:6379/0` (cache degrades to no-op if unreachable).
+
+```bash
+.venv/bin/python -m pytest backend/tests -q   # 94 passed
+.venv/bin/ruff check backend/                 # clean
+```
