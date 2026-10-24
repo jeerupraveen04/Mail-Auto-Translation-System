@@ -1,0 +1,65 @@
+# Runs the full Mail Auto-Translation System stack:
+#   app (FastAPI + LMS Studio :8000) + PostgreSQL + Redis.
+#
+#   docker compose up --build        # start everything
+#   open http://localhost:8000/      # LMS Studio
+#
+# Provider credentials are read from your shell / .env (never committed):
+#   DEEPL_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, GEMINI_API_KEY.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: edunexa
+      POSTGRES_PASSWORD: edunexa
+      POSTGRES_DB: mail_translation
+    ports:
+      - "55432:5432" # matches the documented local DATABASE_URL default
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edunexa -d mail_translation"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # In-network service DNS (container port 5432, not the host-mapped 55432).
+      DATABASE_URL: postgresql+psycopg2://edunexa:edunexa@postgres:5432/mail_translation
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL_SECONDS: "2592000"
+      WORKER_POOL_SIZE: "10"
+      ENGINE_TIMEOUT_SECONDS: "3.0"
+      # Translation provider credentials (leave blank to run in manual_review mode).
+      DEEPL_API_KEY: ${DEEPL_API_KEY:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:
+  redis_data:
